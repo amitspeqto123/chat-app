@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Test</title>
+  <style>
+    body { font-family: Arial; }
+    #messages { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 10px; }
+    .msg { margin: 5px 0; }
+    .me { color: blue; }
+    .other { color: green; }
+  </style>
+</head>
+<body>
+
+<h3>Simple Chat</h3>
+
+<!-- User Info -->
+<input id="userId" placeholder="Your User ID" />
+<input id="receiverId" placeholder="Receiver User ID" />
+<button onclick="connect()">Connect</button>
+
+<br/><br/>
+
+<!-- Messages -->
+<div id="messages"></div>
+
+<br/>
+
+<!-- Send -->
+<input id="msg" placeholder="Type message..." />
+<input type="file" id="imageInput" accept="image/*" />
+<button onclick="sendMessage()">Send</button>
+
+<script>
+  let ws;
+  let currentUserId = "";
+
+  function connect() {
+    currentUserId = document.getElementById("userId").value;
+
+    ws = new WebSocket("ws://localhost:3000");
+
+    ws.onopen = () => {
+      console.log("Connected");
+
+      // 🔥 Register user
+      ws.send(JSON.stringify({
+        type: "register",
+        userId: currentUserId
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "newMessage") {
+        displayMessage(data.data, false);
+      }
+    };
+  }
+
+  function sendMessage() {
+    const text = document.getElementById("msg").value;
+    const receiverId = document.getElementById("receiverId").value;
+    const imageInput = document.getElementById("imageInput");
+
+    if (!text && !imageInput.files[0]) return; // koi input nahi toh exit
+
+    const imageFile = imageInput.files[0];
+
+    if (imageFile) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Send message with image (base64)
+            ws.send(JSON.stringify({
+                type: "sendMessage",
+                senderId: currentUserId,
+                receiverId,
+                text: text || "",       // optional caption
+                image: reader.result    // base64 string
+            }));
+
+            displayMessage({ text, image: URL.createObjectURL(imageFile) }, true);
+
+            document.getElementById("msg").value = "";
+            imageInput.value = "";
+        };
+        reader.readAsDataURL(imageFile);
+    } else {
+        // Text only
+        ws.send(JSON.stringify({
+            type: "sendMessage",
+            senderId: currentUserId,
+            receiverId,
+            text
+        }));
+
+        displayMessage({ text }, true);
+        document.getElementById("msg").value = "";
+    }
+  }
+
+  function displayMessage(message, isOwn) {
+    const chatBox = document.getElementById("messages");
+
+    const div = document.createElement("div");
+    div.style.display = "flex";
+    div.style.margin = "5px";
+    div.style.justifyContent = isOwn ? "flex-end" : "flex-start"; // left/right
+
+    const bubble = document.createElement("div");
+    bubble.style.background = isOwn ? "#DCF8C6" : "#FFF";
+    bubble.style.border = "1px solid #ccc";
+    bubble.style.borderRadius = "10px";
+    bubble.style.padding = "5px 10px";
+    bubble.style.maxWidth = "200px";
+    bubble.style.wordBreak = "break-word";
+
+    if(message.text) {
+        const p = document.createElement("p");
+        p.innerText = message.text;
+        p.style.margin = "0 0 5px 0";
+        bubble.appendChild(p);
+    }
+
+    if(message.image) {
+        const img = document.createElement("img");
+        img.src = message.image;
+        img.style.maxWidth = "150px";
+        img.style.borderRadius = "8px";
+        bubble.appendChild(img);
+    }
+
+    div.appendChild(bubble);
+    chatBox.appendChild(div);
+
+    // Scroll to bottom
+    chatBox.scrollTop = chatBox.scrollHeight;
+ }
+</script>
+
+</body>
+</html>
