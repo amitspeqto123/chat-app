@@ -6,5 +6,5 @@ const router = express.Router();
 
 router.get("/all", isAuthentication, chatList);
 router.get("/:conversationId", messageList);
-
+router.post("/:conversationId/image")
 module.exports = router;
